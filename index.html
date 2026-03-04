@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Matrice Give & Take — GESCOM PDV</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:#F8F5F1;color:#333}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-thumb{background:#C8B39F;border-radius:3px}
+button{font-family:inherit}
+textarea{font-family:inherit;resize:vertical}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideDown{from{opacity:0;max-height:0}to{opacity:1;max-height:600px}}
+.fade-in{animation:fadeIn .3s ease-out}
+.cell-hover:hover{transform:scale(1.12);z-index:2}
+.cell-hover{transition:transform .15s ease}
+.btn-pill{padding:6px 14px;border-radius:20px;cursor:pointer;font-size:12px;font-weight:600;transition:all .2s;border:2px solid}
+.btn-pill:hover{filter:brightness(1.1)}
+.nav-btn{padding:8px 20px;border-radius:6px;border:none;cursor:pointer;font-size:13px;font-weight:600;transition:all .2s}
+.nav-btn:hover{filter:brightness(1.15)}
+.card{background:#fff;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.card-flagged{background:#FFFBEB;border:2px solid #F59E0B}
+.add-form{animation:slideDown .3s ease-out;overflow:hidden}
+.add-form textarea{width:100%;padding:10px 12px;border:2px solid #E5E0DA;border-radius:8px;font-size:13px;min-height:80px;transition:border-color .2s}
+.add-form textarea:focus{outline:none;border-color:#82072A}
+.add-form input{width:100%;padding:8px 12px;border:2px solid #E5E0DA;border-radius:8px;font-size:13px;transition:border-color .2s}
+.add-form input:focus{outline:none;border-color:#82072A}
+.toast{position:fixed;bottom:24px;right:24px;background:#059669;color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,.15);animation:fadeIn .3s ease-out;z-index:999}
+.export-btn{background:#511227;color:#fff;border:none;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s}
+.export-btn:hover{background:#82072A}
+@media(max-width:768px){
+  .grid-2{grid-template-columns:1fr!important}
+  .pills-wrap{gap:4px!important}
+  .pills-wrap .btn-pill{padding:4px 10px;font-size:11px}
+}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState, useMemo, useCallback, useEffect, useRef} = React;
+
+const INITIAL_DATA = {"pairs":{"Développeur→Product Owner":[{"take":"des besoins clairs et priorisés","give":"des estimations et feedback technique","flagged":false},{"equipe":"PRETIUM","take":"- simplifier/clarifier les demandes du métier ( ticket US claires ),\n- aider à la prise de décision sur les problématiques fonctionnelles,","give":"- être force de proposition sur l'aspect technico-fonctionnel\n- aider à l'estimation des charges de devs/tests\n- donner de la visibilité sur l'avancement","flagged":false},{"equipe":"Suite Mobilys","take":"Critères d'Acceptation (AC) : Des US documentées avec des règles de gestion claires et testables.\n\nDefinition of Ready (DoR) : Refus strict d'intégrer en sprint des tickets trop flous.\n\nPriorisation stable : Backlog ordonné par valeur métier.","give":"Accompagnement au chiffrage.\nAide à la rédaction technique.\nAlertes proactives : Remontée des incohérences ou des cas limites.","flagged":false},{"take":"Des US INVEST avec un définition claire de l'objectif.\nMieux utiliser le format GIVEN .. WHEN .. THEN.","give":"Engagement pour les livraisons\nQualité de livraison\nEsprit critique.","flagged":false}],"Développeur→SM":[{"take":"lever les blocages","give":"visibilité sur l'avancement et les obstacles","flagged":false},{"equipe":"PRETIUM","take":"- accompagnement de l'équipe à l'utilisation du dashbord Jira\n- faciliter les échanges lors des rituels agiles","give":"- visibilité sur l'avancement\n- donner du feedback : retro et review","flagged":false},{"equipe":"Suite Mobilys","take":"Garant du cadre Agile : rituels qui clarifient le besoin.\nProtection de l'équipe : Sanctuariser le Sprint.","give":"Transparence totale : Remontée des blocages et risques.\nDiscipline sur les rituels.","flagged":false},{"take":"Garant de la qualité des US","give":"ras","flagged":false}],"Développeur→Dev Team":[{"take":"entraide et revues de code","give":"partage de connaissances","flagged":false},{"equipe":"PRETIUM","take":"- synchronisation avec l'équipe\n- respect des conventions de développement\n- code review, pair programming","give":"- validation de code\n- choix techniques en équipe\n- résolution de problèmes techniques","flagged":false},{"equipe":"Suite Mobilys","take":"Solidarité technique : Entraide systématique.\nRigueur sur la DoD : Qualité de code.","give":"Solidarité technique.\nRigueur sur la DoD.","flagged":false},{"take":"Qualité de livraison\nRespect des règles mises en place","give":"","flagged":false}],"Développeur→QA":[{"take":"cas de test précis et bugs reproductibles","give":"support à l'analyse et correctifs rapides","flagged":false},{"equipe":"PRETIUM","take":"bonne présentation des incidents ou bugs : logs, reproductibilité","give":"délivrer en continue de la valeur à tester","flagged":false},{"equipe":"Suite Mobilys","take":"Challenger le PO dès la conception pour US testables.\nStratégie de test anticipée.","give":"Code testable. Unit Testing robuste.\nDémos précoces.","flagged":false},{"take":"Plan de tests en amont du développement","give":"Qualité de livraison\nCode aligné au plan de test","flagged":false}],"Développeur→PM":[{"take":"vision produit et priorités macro","give":"faisabilité technique et alertes risques","flagged":false},{"equipe":"PRETIUM","take":"- déterminer la valeur métier\n- priorités des fonctionnalités et US\n- présentation claire des objectifs","give":"être force de proposition","flagged":false},{"equipe":"Suite Mobilys","take":"Vision produit claire, roadmap stratégique.\nCadrage macro : OKRs précis.\nArbitrage budgétaire/temps.","give":"Études de faisabilité.\nEstimation de la valeur technique.\nSupport au MVP.","flagged":false},{"take":"vision produit du SI\nObjectif global des évolutions métiers","give":"vision technique du produit","flagged":false}],"Développeur→RTE":[{"take":"priorités claires et synchronisation inter-équipes","give":"visibilité sur la capacité et dépendances","flagged":false},{"equipe":"PRETIUM","take":"amélioration continue du fonctionnement du train","give":"participer aux actions d'amélioration continue","flagged":false},{"equipe":"Suite Mobilys","take":"Aucune","give":"Rien","flagged":false},{"take":"RAS","give":"RAS","flagged":false}],"Développeur→SA":[{"take":"des guidelines techniques cohérentes","give":"des retours terrain techniques","flagged":false},{"equipe":"PRETIUM","take":"avoir une vision architecturelle, partager cette vision","give":"donner des retours d'expérience","flagged":false},{"equipe":"Suite Mobilys","take":"Aucune","give":"Aucune","flagged":false},{"take":"vision technique du SI : architecture, environnement, déploiement, sécurité","give":"solution logicielle du produit","flagged":false}],"Développeur→Res. de train":[{"take":"Priorités claires au niveau du train","give":"engagement sur les objectifs du PI","flagged":false},{"equipe":"PRETIUM","take":"partager la vision moyen et long terme","give":"","flagged":false},{"equipe":"Suite Mobilys","take":"Anticipation contractuelle.\nTransparence budgétaire.","give":"Engagement long terme.\nPassage de connaissances anticipé.","flagged":false},{"take":"facilitateur administratif\nprotection des équipes","give":"RAS","flagged":false}],"Développeur→RM":[{"take":"process de release clair et anticipé","give":"livraisons stables","flagged":false},{"equipe":"PRETIUM","take":"communication du planning des releases, suivi des versions","give":"?","flagged":false},{"equipe":"Suite Mobilys","take":"Calendrier de release clair.\nCritères de Go/No-Go stricts.","give":"Rigueur sur la DoD.\nDocumentation de Release.","flagged":false},{"take":"remonter en amont les contraintes de déploiement","give":"alerte en amont en cas de retard","flagged":false}],"Développeur→Responsable RUN":[{"take":"remontées d'incidents qualifiées","give":"correctifs et support technique","flagged":false},{"equipe":"PRETIUM","take":"bonne présentation des incidents de prod","give":"diagnostiquer et investiguer les incidents","flagged":false},{"equipe":"Suite Mobilys","take":"Filtre des incidents (N1/N2) pour ne solliciter les devs que sur des problèmes réels.","give":"Outils de diagnostic. Réactivité sur le critique.","flagged":false},{"take":"ticket run complet : scénario de reproduction, logs, bdd","give":"RAS","flagged":false}],"Développeur→GA":[{"take":"infos sur environnements et contraintes","give":"documentation et support aux déploiements","flagged":false},{"equipe":"PRETIUM","take":"?","give":"?","flagged":false},{"equipe":"Suite Mobilys","take":"Aucun","give":"Rien","flagged":false},{"take":"RAS","give":"RAS","flagged":false}],"Release Manager→Product Owner":[{"take":"Prioriser en cohérence avec les dates de release.\nMaintenir la version cible sur chaque fonctionnalité.","give":"Visibilité sur planning et contenu des releases.\nCoordination transverse.\nAdministratif (bons OASIS, CR, CODIR, CAB).","flagged":false}],"Release Manager→SM":[{"take":"Découpage orienté livraison rapide.\nAnticiper risques et dépendances.\nVisibilité des livraisons du PI.","give":"Visibilité consolidée des releases.\nCadre clair mises en pilote/déploiement.","flagged":false}],"Release Manager→Dev Team":[{"take":"Alerter rapidement en cas de risque ou retard.\nÊtre attentif au planning des versions.","give":"Vision claire des échéances de version.","flagged":false}],"Release Manager→QA":[{"take":"Participer activement aux phases pilotes.\nPrioriser les tests pour respecter le planning.","give":"Vision claire des échéances.","flagged":false}],"Release Manager→PM":[{"take":"Implication proactive lors des phases pilotes.\nSuivi des retours et feedbacks PDV.","give":"Visibilité sur le planning des déploiements.\nContenu des versions en réalisation.","flagged":false}],"Release Manager→Res. de train":[{"take":"Soutien résolution des blocages inter-équipes.\nClarifier les priorités.","give":"Répondre aux OKR.\nVisibilité fonctionnalités/versions.","flagged":false}],"Release Manager→RM":[{"take":"/","give":"/","flagged":false}],"Release Manager→Responsable RUN":[{"take":"Meilleure priorisation des tickets run.","give":"Visibilité sur le déploiement des correctifs.","flagged":false}],"Release Manager→GA":[{"take":"Davantage d'implication en phase de pilotage.","give":"Documentation fonctionnelle.\nVisibilité planning versions.","flagged":false}],"Scrum Master→Product Owner":[{"equipe":"System TEAM","take":"Porter la vision PM.\nDécoupage en Story avec DOR ok.\nCollaboration PO/SM.","give":"Cadre agile & outils.\nStatistiques jira.","flagged":false},{"take":"Priorisation du backlog\nFonctionnalité découpé","give":"Expertise Scrum, événements, amélioration des process","flagged":false}],"Scrum Master→SM":[{"equipe":"System TEAM","take":"Co-opération, partage d'outils, synchronisation","give":"Co-opération, partage d'outils, synchronisation","flagged":false},{"take":"Soutien des pairs, motivation","give":"Mon soutien, ma motivation","flagged":false}],"Scrum Master→Dev Team":[{"equipe":"System TEAM","take":"Transparence, bonne ambiance d'équipe","give":"Cadre agile.\nIdentifier blocages et améliorations.","flagged":false},{"take":"Force de proposition, s'approprier les sujets","give":"Expertise SAFe/Scrum, soutien pour s'exprimer.","flagged":false}],"Scrum Master→QA":[{"equipe":"System TEAM","take":"Transparence, bonne ambiance","give":"Cadre agile.\nIdentifier blocages.","flagged":false},{"take":"Force de proposition, s'approprier les sujets","give":"Expertise SAFe/Scrum.","flagged":false}],"Scrum Master→PM":[{"equipe":"System TEAM","take":"Pilotage clair via le trio RTE/SA/Lead PM.\nBonne collaboration PM/PO.","give":"Outils et statistiques pertinentes.","flagged":false},{"take":"Fonctionnalités priorisées, étude du besoin claire, hypothèses mesurables, vision produit","give":"Expertise SAFe/Scrum, aide outils.","flagged":false}],"Scrum Master→RTE":[{"equipe":"System TEAM","take":"Pilotage clair via le trio.\nFormation continue des SM.\nPorter SAFe.\nAccompagnement égal.","give":"Relai agile auprès d'une équipe.","flagged":false},{"take":"Vision du train, exprimer ses demandes","give":"Soutien, motivation, aide.","flagged":false}],"Scrum Master→SA":[{"equipe":"System TEAM","take":"Pilotage clair via le trio.\nAccompagnement technique.","give":"Outils et statistiques.","flagged":false},{"take":"Vision architecture claire","give":"Animation d'ateliers.","flagged":false}],"Scrum Master→Res. de train":[{"equipe":"System TEAM","take":"Management RH.\nLever blocages structurels.\nMise en avant du trio.","give":"Visibilité avancement.\nStatistiques.","flagged":false},{"take":"Vision claire du train","give":"Soutien, motivation, aide.","flagged":false}],"Scrum Master→RM":[{"equipe":"System TEAM","take":"Suivi & cohérence releases.","give":"Outils et indicateurs.","flagged":false},{"take":"","give":"Soutien, motivation, aide.","flagged":false}],"Scrum Master→Responsable RUN":[{"equipe":"System TEAM","take":"Suivi tickets support, status jira.","give":"Outils (jira, …)","flagged":false},{"take":"Priorisation tickets support/anomalie, description claire","give":"Soutien, motivation, aide.","flagged":false}],"Scrum Master→GA":[{"equipe":"System TEAM","take":"Status et commentaires jira à jour.","give":"Outils (jira, …)","flagged":false},{"take":"","give":"Soutien, motivation, aide.","flagged":false}],"RTE→Product Owner":[{"equipe":"Train GesCom PDV","take":"Participation vision produit.\nBacklog apportant de la valeur.\nReviews propices aux feedback.","give":"Visibilité sur la priorisation du product management","flagged":false}],"RTE→SM":[{"equipe":"Train GesCom PDV","take":"Visibilité difficultés des équipes.\nAutonomie des équipes.\nFacilitation événements du train.","give":"Visibilité décisions gouvernance.\nAutonomie.","flagged":false}],"RTE→Dev Team":[{"equipe":"Train GesCom PDV","take":"qualité du produit et non juste du code","give":"visibilité sur la méthode appliquée","flagged":false}],"RTE→QA":[{"equipe":"Train GesCom PDV","take":"qualité du produit","give":"visibilité sur la méthode","flagged":false}],"RTE→PM":[{"equipe":"Train GesCom PDV","take":"Gestion backlog du train : fonctionnalités, affinage, priorisation au long cours.","give":"Aide priorisation.\nVisibilité difficultés des équipes.","flagged":false}],"RTE→SA":[{"equipe":"Train GesCom PDV","take":"Participation gouvernance.\nEnablers dans le backlog.\nExplication valeur au PM.","give":"Aide gestion backlog avec le PM","flagged":false}],"RTE→Res. de train":[{"equipe":"Train GesCom PDV","take":"Information décisions direction impactant le train","give":"Visibilité sur le train","flagged":false}],"RTE→RM":[{"equipe":"Train GesCom PDV","take":"Releases petites et fréquentes","give":"Appui discours : plus de release, plus de valeur","flagged":false}],"RTE→Responsable RUN":[{"equipe":"Train GesCom PDV","take":"Qualification éléments du support du backlog","give":"Aide à la méthode","flagged":false}],"Testeur→Product Owner":[{"take":"US compréhensibles\nCritères d'acceptation précis\nRègles métier détaillées\nCas limites identifiés","give":"Identifier les zones floues\nDétecter les cas limites oubliés\nPoser les bonnes questions métier","flagged":false},{"take":"US et RG claires","give":"Visibilité sur les tests","flagged":false},{"equipe":"Suite Mobilys","take":"Spécifications testables et stables.\nCritères d'acceptation précis et automatisables.\nRègles métier explicites.","give":"Sécurisation livraisons via tests automatisés.\nDétection régressions.\nFeedback rapide.","flagged":false},{"equipe":"SYSTEM TEAM","take":"Acceptation et Approbation d'idées concrètes pour AVANCER.","give":"Nombreux FRAMEWORKS pour AVANCER, pour toutes les SQUADS.","flagged":true}],"Testeur→SM":[{"take":"Protection de l'équipe contre changements intempestifs\nFaire respecter les règles Scrum\nIdentifier les blocages","give":"","flagged":false},{"take":"Pilotage de la squad","give":"Feedback avancement projets","flagged":false},{"equipe":"Suite Mobilys","take":"Application cadre SAFe.\nQualité intégrée au flux de valeur.\nProtection capacité équipe.","give":"Built-In Quality.\nVisibilité qualité.\nAnticipation risques.","flagged":false},{"equipe":"SYSTEM TEAM","take":"Acceptation et Approbation d'idées concrètes.","give":"Nombreux FRAMEWORKS pour AVANCER.","flagged":true}],"Testeur→Dev Team":[{"take":"Logs clairs\nTests unitaires solides\nLivraisons progressives\nÉchanges directs\nOuverture face aux bugs remontés","give":"Regard neuf\nVision différente du produit\nScénarios non envisagés","flagged":false},{"take":"Communication","give":"Feedback sur le dev","flagged":false},{"equipe":"Suite Mobilys","take":"Built-In Quality dès le développement.\nFonctionnalités testables (testIDs).\nDoD respectée.","give":"Sécurisation continue qualité.\nFeedback rapide actionnable.","flagged":false},{"equipe":"SYSTEM TEAM","take":"Acceptation et Approbation d'idées concrètes.","give":"Nombreux FRAMEWORKS pour AVANCER.","flagged":true}],"Testeur→QA":[{"take":"Cas de tests bien documentés\nAnomalies claires et reproductibles\nTraçabilité propre\nPartage connaissances","give":"","flagged":false},{"take":"Test efficace remonté de bug","give":"","flagged":false},{"equipe":"Suite Mobilys","take":"Vision qualité partagée.\nRègles communes.\nCollaboration automatisation.","give":"Industrialisation qualité.\nShift Left & Built-In Quality.","flagged":false},{"equipe":"SYSTEM TEAM","take":"Acceptation et Approbation d'idées concrètes.","give":"Nombreux FRAMEWORKS pour AVANCER.","flagged":true}],"Testeur→PM":[{"equipe":"Suite Mobilys","take":"Vision et priorisation claire.\nDisponibilité pour clarifications.","give":"Visibilité qualité.\nSupport décision.","flagged":false},{"equipe":"SYSTEM TEAM","take":"Acceptation et Approbation d'idées concrètes.","give":"Nombreux FRAMEWORKS pour AVANCER.","flagged":true}],"Testeur→RTE":[{"equipe":"Suite Mobilys","take":"Clarté priorisation PI Objectives.\nOrganisation coordination.","give":"Visibilité qualité tests.\nContribution planification.","flagged":false},{"equipe":"SYSTEM TEAM","take":"Acceptation et Approbation d'idées concrètes.","give":"Nombreux FRAMEWORKS pour AVANCER.","flagged":true}],"Testeur→SA":[{"equipe":"Suite Mobilys","take":"Clarification technique et vision architecture.\nSupport dépendances techniques.","give":"Feedback architecture.\nValidation robustesse technique.","flagged":false},{"equipe":"SYSTEM TEAM","take":"Acceptation et Approbation d'idées concrètes.","give":"Nombreux FRAMEWORKS pour AVANCER.","flagged":true}],"Testeur→Res. de train":[{"equipe":"Suite Mobilys","take":"Coordination et priorisation.\nSupport et levée des obstacles.","give":"Visibilité qualité.\nSupport planification.","flagged":false},{"equipe":"SYSTEM TEAM","take":"Acceptation et Approbation d'idées concrètes.","give":"Nombreux FRAMEWORKS pour AVANCER.","flagged":true}],"Testeur→RM":[{"equipe":"Suite Mobilys","take":"Vision claire calendrier release.\nAccès environnements.","give":"Tests automatisés robustes.\nReporting traçabilité.","flagged":false},{"equipe":"SYSTEM TEAM","take":"Acceptation et Approbation d'idées concrètes.","give":"Nombreux FRAMEWORKS pour AVANCER.","flagged":true}],"Testeur→Responsable RUN":[{"equipe":"Suite Mobilys","take":"Accès fiable environnements.\nCollaboration communication.","give":"Tests automatisés fiables.\nDétection suivi incidents.","flagged":false},{"equipe":"SYSTEM TEAM","take":"Acceptation et Approbation d'idées concrètes.","give":"Nombreux FRAMEWORKS pour AVANCER.","flagged":true}],"Testeur→GA":[{"equipe":"Suite Mobilys","take":"Accès environnements et applications.\nSupport fonctionnel.","give":"Feedback structuré.\nQualité fiabilité.","flagged":false},{"equipe":"SYSTEM TEAM","take":"Acceptation et Approbation d'idées concrètes.","give":"Nombreux FRAMEWORKS pour AVANCER.","flagged":true}],"Product Owner→Product Owner":[{"take":"Être prévenu des dépendances\nInformation sur les besoins\nEntraide en cas d'absence","give":"Vision produit priorisée\nBacklog défini et priorisé\nCritères d'acceptation pour chaque US\nArbitrage rapide","flagged":false}],"Product Owner→SM":[{"take":"Animation efficace des cérémonies\nTableaux de bord métriques fiables\nAider à lever les obstacles","give":"","flagged":false}],"Product Owner→Dev Team":[{"take":"Questionnement fonctionnalités/US, impacts métier\nEstimations réalistes\nTransparence difficultés techniques\nQualité des développements","give":"","flagged":false}],"Product Owner→QA":[{"take":"Questionnement fonctionnalités/US\nEstimations réalistes\nTransparence\nQualité des recettes","give":"","flagged":false}],"Product Owner→PM":[{"take":"Vision claire du PI à venir et roadmap actualisée\nArbitrage des priorités\nFiltrer les besoins métiers","give":"","flagged":false}],"Product Owner→RTE":[{"take":"Vision jalons du train\nRésolution problèmes inter-trains/squad\nPréparation PI Planning\nRemonté risques","give":"","flagged":false}],"Product Owner→SA":[{"take":"Connaissance parfaite du produit\nArchitecture réaliste\nCommunication transparente\nPrésence active","give":"","flagged":false}],"Product Owner→RM":[{"take":"Planning anticipé des versions\nSuivi déploiements\nRemonté des pb","give":"","flagged":false}],"Product Owner→Responsable RUN":[{"take":"Filtrer les alertes en production","give":"","flagged":false}]},"coverage":{"Développeur":{"Product Owner":4,"SM":4,"Dev Team":4,"QA":4,"PM":4,"RTE":4,"SA":4,"Res. de train":4,"RM":4,"Responsable RUN":4,"GA":4},"Release Manager":{"Product Owner":1,"SM":1,"Dev Team":1,"QA":1,"PM":1,"RTE":0,"SA":0,"Res. de train":1,"RM":1,"Responsable RUN":1,"GA":1},"Scrum Master":{"Product Owner":2,"SM":2,"Dev Team":2,"QA":2,"PM":2,"RTE":2,"SA":2,"Res. de train":2,"RM":2,"Responsable RUN":2,"GA":2},"RTE":{"Product Owner":1,"SM":1,"Dev Team":1,"QA":1,"PM":1,"RTE":0,"SA":1,"Res. de train":1,"RM":1,"Responsable RUN":1,"GA":0},"Testeur":{"Product Owner":4,"SM":4,"Dev Team":4,"QA":4,"PM":2,"RTE":2,"SA":2,"Res. de train":2,"RM":2,"Responsable RUN":2,"GA":2},"Product Owner":{"Product Owner":1,"SM":1,"Dev Team":1,"QA":1,"PM":1,"RTE":1,"SA":1,"Res. de train":0,"RM":1,"Responsable RUN":1,"GA":0}},"emetteurs":["Développeur","Release Manager","Scrum Master","RTE","Testeur","Product Owner"],"cibles":["Product Owner","SM","Dev Team","QA","PM","RTE","SA","Res. de train","RM","Responsable RUN","GA"],"meta":{"frictions":[{"from":"Développeur","text":"Manque d'alignement entre les rôles sur les objectifs"},{"from":"Développeur","text":"L'instabilité du flux : le métier ne sait pas ce qu'il veut, la PO traduit en US incomplètes, le train avance à l'aveugle."},{"from":"Développeur","text":"Dette technique de l'application"},{"from":"Scrum Master","text":"Chacun doit trouver sa place dans les nouveaux rôles du mode produit."},{"from":"Scrum Master","text":"Les sujets qui ne sont pas clairs"},{"from":"RTE","text":"Application d'un cadre d'agilité à l'échelle dans une organisation ayant d'autres réflexes."},{"from":"Testeur","text":"Manque de clarté et changements fréquents des exigences."},{"from":"Product Owner","text":"Absence de communication des architectes"}]}};
+
+const EMETTEURS = INITIAL_DATA.emetteurs;
+const CIBLES = INITIAL_DATA.cibles;
+const SHORT = {"Product Owner":"PO","SM":"SM","Dev Team":"Dev","QA":"QA","PM":"PM","RTE":"RTE","SA":"SA","Res. de train":"Res.T","RM":"RM","Responsable RUN":"RUN","GA":"GA"};
+const ROLE_COLORS = {"Développeur":"#3B82F6","Testeur":"#10B981","Scrum Master":"#F59E0B","Release Manager":"#8B5CF6","RTE":"#EC4899","Product Owner":"#06B6D4"};
+
+function App() {
+  const [data, setData] = useState(INITIAL_DATA);
+  const [view, setView] = useState("matrix");
+  const [showEm, setShowEm] = useState(EMETTEURS[0]);
+  const [showCi, setShowCi] = useState(CIBLES[0]);
+  const [toast, setToast] = useState(null);
+
+  const addedCount = useMemo(() => {
+    let c = 0;
+    Object.values(data.pairs).forEach(arr => arr.forEach(e => { if (e.addedLive) c++; }));
+    return c;
+  }, [data]);
+
+  const getCoverage = (em, ci) => {
+    const key = `${em}→${ci}`;
+    return (data.pairs[key] || []).length;
+  };
+
+  const showToast = (msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 2500);
+  };
+
+  const addResponse = (em, ci, entry) => {
+    const key = `${em}→${ci}`;
+    setData(prev => {
+      const np = { ...prev, pairs: { ...prev.pairs } };
+      np.pairs[key] = [...(np.pairs[key] || []), { ...entry, flagged: false, addedLive: true }];
+      return np;
+    });
+    showToast(`✓ Réponse ajoutée pour ${em} → ${ci}`);
+  };
+
+  const deleteResponse = (em, ci, idx) => {
+    const key = `${em}→${ci}`;
+    setData(prev => {
+      const np = { ...prev, pairs: { ...prev.pairs } };
+      np.pairs[key] = np.pairs[key].filter((_, i) => i !== idx);
+      if (np.pairs[key].length === 0) delete np.pairs[key];
+      return np;
+    });
+    showToast("Réponse supprimée");
+  };
+
+  const exportJSON = () => {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "matrice_give_take_export.json"; a.click();
+    URL.revokeObjectURL(url);
+    showToast("Export JSON téléchargé");
+  };
+
+  return (
+    <div style={{minHeight:"100vh"}}>
+      {/* Header */}
+      <div style={{background:"linear-gradient(135deg,#511227 0%,#82072A 100%)",padding:"20px 32px",position:"relative"}}>
+        <div style={{position:"absolute",top:0,left:0,right:0,height:4,background:"#FF2822"}} />
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:12}}>
+          <div>
+            <div style={{fontSize:11,letterSpacing:6,color:"#C8B39F",fontWeight:600}}>MATRICE GIVE & TAKE</div>
+            <div style={{fontSize:24,fontWeight:700,color:"#fff"}}>Train GESCOM PDV</div>
+            <div style={{fontSize:12,color:"#C8B39F",marginTop:2}}>
+              {Object.values(data.pairs).reduce((a,b)=>a+b.length,0)} réponses • 6 rôles émetteurs • 11 rôles cibles
+              {addedCount > 0 && <span style={{color:"#10B981",fontWeight:600}}> • +{addedCount} ajoutée{addedCount>1?"s":""} en live</span>}
+            </div>
+          </div>
+          <button onClick={exportJSON} className="export-btn">⬇ Exporter JSON</button>
+        </div>
+      </div>
+
+      {/* Nav */}
+      <div style={{display:"flex",gap:8,padding:"12px 32px",borderBottom:"1px solid #E5E0DA",background:"#fff",flexWrap:"wrap"}}>
+        {[["matrix","🔲 Matrice"],["detail","🔍 Exploration"],["friction","⚡ Frictions"]].map(([k,l])=>(
+          <button key={k} onClick={()=>setView(k)} className="nav-btn" style={{
+            background:view===k?"#82072A":"transparent",color:view===k?"#fff":"#666"
+          }}>{l}</button>
+        ))}
+      </div>
+
+      <div style={{padding:"24px 32px",maxWidth:1200,margin:"0 auto"}}>
+        {view === "matrix" && <MatrixView data={data} getCoverage={getCoverage}
+          onSelect={(em,ci)=>{setShowEm(em);setShowCi(ci);setView("detail");}} />}
+        {view === "detail" && <DetailView data={data} showEm={showEm} showCi={showCi}
+          setShowEm={setShowEm} setShowCi={setShowCi} getCoverage={getCoverage}
+          onAdd={addResponse} onDelete={deleteResponse} />}
+        {view === "friction" && <FrictionView frictions={data.meta.frictions} />}
+      </div>
+
+      {toast && <div className="toast">{toast}</div>}
+    </div>
+  );
+}
+
+function MatrixView({data, getCoverage, onSelect}) {
+  return (
+    <div className="fade-in">
+      <h2 style={{fontSize:22,color:"#511227",margin:"0 0 4px",fontWeight:700}}>Matrice de couverture</h2>
+      <p style={{color:"#888",fontSize:13,margin:"0 0 20px"}}>Cliquez sur une case pour explorer les réponses</p>
+      <div style={{overflowX:"auto"}}>
+        <table style={{borderCollapse:"separate",borderSpacing:3,width:"100%",minWidth:780}}>
+          <thead>
+            <tr>
+              <th style={{padding:"8px 10px",textAlign:"left",fontSize:11,color:"#999",fontWeight:600,minWidth:120}}>ÉMETTEUR ↓ CIBLE →</th>
+              {CIBLES.map(c=>(
+                <th key={c} style={{padding:"6px 4px",textAlign:"center",fontSize:10,fontWeight:700,color:"#511227",background:"#F2EBE2",borderRadius:6}}>
+                  {SHORT[c]||c}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {EMETTEURS.map(em=>(
+              <tr key={em}>
+                <td style={{padding:"8px 10px",fontWeight:600,fontSize:12,color:ROLE_COLORS[em],whiteSpace:"nowrap"}}>
+                  <span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:ROLE_COLORS[em],marginRight:6,verticalAlign:"middle"}} />
+                  {em}
+                </td>
+                {CIBLES.map(ci=>{
+                  const v = getCoverage(em,ci);
+                  const bg = v===0?"#FEE2E2":v>=3?"#D1FAE5":"#FEF9C3";
+                  const tc = v===0?"#DC2626":v>=3?"#059669":"#B45309";
+                  return (
+                    <td key={ci} style={{textAlign:"center",padding:2}}>
+                      <div onClick={()=>onSelect(em,ci)} className="cell-hover" style={{
+                        background:bg,borderRadius:8,padding:"8px 4px",fontSize:14,fontWeight:700,color:tc,
+                        cursor:"pointer",minWidth:38,position:"relative"
+                      }}>
+                        {v===0?"—":v}
+                      </div>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div style={{display:"flex",gap:20,marginTop:16,fontSize:12,color:"#888",flexWrap:"wrap"}}>
+        <span><span style={{display:"inline-block",width:14,height:14,borderRadius:4,background:"#D1FAE5",verticalAlign:"middle",marginRight:6}}/>3+ réponses</span>
+        <span><span style={{display:"inline-block",width:14,height:14,borderRadius:4,background:"#FEF9C3",verticalAlign:"middle",marginRight:6}}/>1-2 réponses</span>
+        <span><span style={{display:"inline-block",width:14,height:14,borderRadius:4,background:"#FEE2E2",verticalAlign:"middle",marginRight:6}}/>Aucune — à compléter</span>
+      </div>
+    </div>
+  );
+}
+
+function DetailView({data, showEm, showCi, setShowEm, setShowCi, getCoverage, onAdd, onDelete}) {
+  const [showForm, setShowForm] = useState(false);
+  const [formTake, setFormTake] = useState("");
+  const [formGive, setFormGive] = useState("");
+  const [formEquipe, setFormEquipe] = useState("");
+  const formRef = useRef(null);
+
+  const currentKey = `${showEm}→${showCi}`;
+  const currentData = data.pairs[currentKey] || [];
+  const count = getCoverage(showEm, showCi);
+
+  const handleSubmit = () => {
+    if (!formTake.trim() && !formGive.trim()) return;
+    onAdd(showEm, showCi, {
+      take: formTake.trim(),
+      give: formGive.trim(),
+      equipe: formEquipe.trim() || undefined
+    });
+    setFormTake(""); setFormGive(""); setFormEquipe(""); setShowForm(false);
+  };
+
+  const handleCancel = () => {
+    setFormTake(""); setFormGive(""); setFormEquipe(""); setShowForm(false);
+  };
+
+  useEffect(() => {
+    if (showForm && formRef.current) {
+      formRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [showForm]);
+
+  return (
+    <div className="fade-in">
+      <h2 style={{fontSize:22,color:"#511227",margin:"0 0 16px",fontWeight:700}}>Exploration des réponses</h2>
+
+      {/* Emitter selector */}
+      <div style={{marginBottom:14}}>
+        <label style={{fontSize:11,fontWeight:600,color:"#999",display:"block",marginBottom:6}}>RÔLE ÉMETTEUR</label>
+        <div className="pills-wrap" style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          {EMETTEURS.map(em=>(
+            <button key={em} onClick={()=>{setShowEm(em);setShowForm(false);}} className="btn-pill" style={{
+              borderColor:ROLE_COLORS[em],
+              background:showEm===em?ROLE_COLORS[em]:"transparent",
+              color:showEm===em?"#fff":ROLE_COLORS[em]
+            }}>{em}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* Target selector */}
+      <div style={{marginBottom:20}}>
+        <label style={{fontSize:11,fontWeight:600,color:"#999",display:"block",marginBottom:6}}>RÔLE CIBLE</label>
+        <div className="pills-wrap" style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          {CIBLES.map(ci=>{
+            const cv = getCoverage(showEm,ci);
+            return (
+              <button key={ci} onClick={()=>{setShowCi(ci);setShowForm(false);}} className="btn-pill" style={{
+                borderColor:showCi===ci?"#82072A":"#ddd",
+                background:showCi===ci?"#82072A":"transparent",
+                color:showCi===ci?"#fff":cv===0?"#bbb":"#666"
+              }}>{SHORT[ci]||ci}{cv>0&&<span style={{marginLeft:4,fontSize:10,opacity:.6}}>({cv})</span>}</button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Pair header */}
+      <div className="card" style={{marginBottom:16,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+        <span style={{background:ROLE_COLORS[showEm],color:"#fff",padding:"4px 14px",borderRadius:14,fontSize:13,fontWeight:700}}>{showEm}</span>
+        <span style={{fontSize:22,color:"#C8B39F"}}>→</span>
+        <span style={{background:"#511227",color:"#fff",padding:"4px 14px",borderRadius:14,fontSize:13,fontWeight:700}}>{showCi}</span>
+        <span style={{marginLeft:"auto",fontSize:13,color:count===0?"#DC2626":"#059669",fontWeight:600}}>
+          {count===0?"⚠ Aucune réponse":`${count} réponse${count>1?"s":""}`}
+        </span>
+        <button onClick={()=>setShowForm(!showForm)} style={{
+          background:showForm?"#DC2626":"#10B981",color:"#fff",border:"none",padding:"8px 16px",
+          borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer",transition:"all .2s"
+        }}>
+          {showForm ? "✕ Annuler" : "+ Ajouter une réponse"}
+        </button>
+      </div>
+
+      {/* Add form */}
+      {showForm && (
+        <div ref={formRef} className="card add-form" style={{marginBottom:16,border:"2px solid #10B981"}}>
+          <div style={{fontSize:14,fontWeight:700,color:"#059669",marginBottom:12}}>
+            ✎ Nouvelle réponse : {showEm} → {showCi}
+          </div>
+          <div style={{marginBottom:10}}>
+            <label style={{fontSize:11,fontWeight:600,color:"#666",display:"block",marginBottom:4}}>Squad / Équipe (optionnel)</label>
+            <input value={formEquipe} onChange={e=>setFormEquipe(e.target.value)} placeholder="Ex: Suite Mobilys, PRETIUM..." />
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}} className="grid-2">
+            <div>
+              <label style={{fontSize:11,fontWeight:700,color:"#82072A",display:"block",marginBottom:4,letterSpacing:1}}>
+                TAKE — Ce que j'attends de {showCi}
+              </label>
+              <textarea value={formTake} onChange={e=>setFormTake(e.target.value)}
+                placeholder="Décrivez vos attentes envers ce rôle..." />
+            </div>
+            <div>
+              <label style={{fontSize:11,fontWeight:700,color:"#059669",display:"block",marginBottom:4,letterSpacing:1}}>
+                GIVE — Ce que j'apporte à {showCi}
+              </label>
+              <textarea value={formGive} onChange={e=>setFormGive(e.target.value)}
+                placeholder="Décrivez ce que vous apportez à ce rôle..." />
+            </div>
+          </div>
+          <div style={{display:"flex",gap:8,marginTop:14,justifyContent:"flex-end"}}>
+            <button onClick={handleCancel} style={{
+              background:"#f5f5f5",border:"1px solid #ddd",padding:"8px 20px",borderRadius:8,
+              fontSize:13,cursor:"pointer",color:"#666"
+            }}>Annuler</button>
+            <button onClick={handleSubmit} disabled={!formTake.trim()&&!formGive.trim()} style={{
+              background:(!formTake.trim()&&!formGive.trim())?"#ccc":"#10B981",color:"#fff",border:"none",
+              padding:"8px 24px",borderRadius:8,fontSize:13,fontWeight:600,cursor:(!formTake.trim()&&!formGive.trim())?"default":"pointer"
+            }}>✓ Ajouter cette réponse</button>
+          </div>
+        </div>
+      )}
+
+      {/* Responses */}
+      {currentData.length > 0 ? (
+        <div style={{display:"flex",flexDirection:"column",gap:12}}>
+          {currentData.map((entry, i) => (
+            <div key={i} className={`card fade-in ${entry.flagged?"card-flagged":""}`}
+              style={entry.addedLive?{border:"2px solid #10B981"}:{}}>
+
+              {entry.flagged && (
+                <div style={{background:"#FEF3C7",borderRadius:6,padding:"6px 12px",marginBottom:12,fontSize:11,color:"#92400E",fontWeight:600}}>
+                  ⚠ Réponse signalée : contenu identique copié sur tous les rôles cibles (System Team)
+                </div>
+              )}
+
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                  {entry.equipe && (
+                    <span style={{fontSize:11,color:"#999",fontWeight:600,background:"#f5f5f5",padding:"2px 8px",borderRadius:4}}>
+                      {entry.equipe}
+                    </span>
+                  )}
+                  {entry.addedLive && (
+                    <span style={{fontSize:10,color:"#059669",fontWeight:700,background:"#D1FAE5",padding:"2px 8px",borderRadius:4}}>
+                      AJOUTÉ EN ATELIER
+                    </span>
+                  )}
+                </div>
+                {entry.addedLive && (
+                  <button onClick={()=>onDelete(showEm,showCi,i)} title="Supprimer" style={{
+                    background:"none",border:"none",cursor:"pointer",fontSize:16,color:"#DC2626",opacity:.5,transition:"opacity .2s"
+                  }} onMouseEnter={e=>e.target.style.opacity=1} onMouseLeave={e=>e.target.style.opacity=.5}>✕</button>
+                )}
+              </div>
+
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}} className="grid-2">
+                <div>
+                  <div style={{fontSize:11,fontWeight:700,color:"#82072A",marginBottom:6,letterSpacing:1}}>TAKE — Ce que j'attends</div>
+                  <div style={{fontSize:13,color:"#333",whiteSpace:"pre-line",lineHeight:1.6}}>
+                    {entry.take || <span style={{color:"#ccc",fontStyle:"italic"}}>Non renseigné</span>}
+                  </div>
+                </div>
+                <div>
+                  <div style={{fontSize:11,fontWeight:700,color:"#059669",marginBottom:6,letterSpacing:1}}>GIVE — Ce que j'apporte</div>
+                  <div style={{fontSize:13,color:"#333",whiteSpace:"pre-line",lineHeight:1.6}}>
+                    {entry.give || <span style={{color:"#ccc",fontStyle:"italic"}}>Non renseigné</span>}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{background:"#FEE2E2",borderRadius:12,padding:"40px 24px",textAlign:"center"}}>
+          <div style={{fontSize:40,marginBottom:8}}>🔲</div>
+          <div style={{fontSize:16,color:"#991B1B",fontWeight:600}}>Aucune réponse pour cette paire</div>
+          <div style={{fontSize:13,color:"#B91C1C",marginTop:4}}>Utilisez le bouton "+ Ajouter une réponse" pour compléter en atelier</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FrictionView({frictions}) {
+  return (
+    <div className="fade-in">
+      <h2 style={{fontSize:22,color:"#511227",margin:"0 0 4px",fontWeight:700}}>Points de friction identifiés</h2>
+      <p style={{color:"#888",fontSize:13,margin:"0 0 20px"}}>Les difficultés principales remontées par les répondants</p>
+      <div style={{display:"flex",flexDirection:"column",gap:12}}>
+        {frictions.map((f,i)=>(
+          <div key={i} className="card" style={{borderLeft:`4px solid ${ROLE_COLORS[f.from]||"#999"}`,padding:"14px 20px"}}>
+            <span style={{background:ROLE_COLORS[f.from],color:"#fff",padding:"2px 10px",borderRadius:10,fontSize:11,fontWeight:700,marginRight:10}}>{f.from}</span>
+            <span style={{fontSize:14,color:"#333",lineHeight:1.6}}>{f.text}</span>
+          </div>
+        ))}
+      </div>
+      <div style={{background:"#511227",borderRadius:12,padding:"20px 24px",marginTop:24}}>
+        <div style={{fontSize:15,color:"#fff",fontWeight:700,marginBottom:8}}>Thème dominant</div>
+        <div style={{fontSize:14,color:"#C8B39F",lineHeight:1.6}}>
+          Le manque de clarté des User Stories et l'instabilité du périmètre reviennent dans la majorité des réponses.
+          La mise en place d'une Definition of Ready stricte apparaît comme le levier d'amélioration le plus attendu.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.render(<App />, document.getElementById("root"));
+</script>
+</body>
+</html>
